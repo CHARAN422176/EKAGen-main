@@ -63,7 +63,7 @@ def create_caption_and_mask(start_token, max_length, batch_size):
 def compute_scores(gts, res):
     scorers = [
         (Bleu(4), ["BLEU_1", "BLEU_2", "BLEU_3", "BLEU_4"]),
-        (meteor(), "METEOR"),
+        # (meteor(), "METEOR"),
         (rouge(), "ROUGE_L")
     ]
     eval_res = {}
