@@ -69,7 +69,8 @@ def compute_scores(gts, res):
     eval_res = {}
     for scorer, method in scorers:
         try:
-            score, _ = scorer.compute_score(gts, res, verbose=0)
+            # score, _ = scorer.compute_score(gts, res, verbose=0)
+            score, _ = scorer.compute_score(gts, res)
         except TypeError:
             score, _ = scorer.compute_score(gts, res)
         if type(method) == list:
