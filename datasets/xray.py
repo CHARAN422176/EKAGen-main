@@ -99,11 +99,7 @@ class XrayDataset(Dataset):
     def __getitem__(self, idx):
         caption = self.annot[idx]["report"]
         image_path = self.annot[idx]['image_path']
-        # image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
-        arr = np.load(os.path.join(self.data_dir.strip("images"), "images300_array",
-                           image_path[0].replace(".png", ".npy")), allow_pickle=True)
-        arr = (arr * 255).astype('uint8') if arr.max() <= 1 else arr.astype('uint8')
-        image = Image.fromarray(arr).convert('RGB')
+        image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
 
         class_image = image
         com_image = image
