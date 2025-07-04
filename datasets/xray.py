@@ -99,10 +99,7 @@ class XrayDataset(Dataset):
     def __getitem__(self, idx):
         caption = self.annot[idx]["report"]
         image_path = self.annot[idx]['image_path']
-        # image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
-        arr = np.load(os.path.join(self.data_dir, image_path[0].replace(".png", ".npy")))
-        image = Image.fromarray(arr).resize((300, 300)).convert('RGB')
-
+        image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
         class_image = image
         com_image = image
 
@@ -110,8 +107,10 @@ class XrayDataset(Dataset):
             mask_arr = np.load(os.path.join(self.data_dir.strip("images300"), "images300_array",
                                             image_path[0].replace(".jpg", ".npy")))
         else:
-            mask_arr = np.load(os.path.join(self.data_dir.strip("images"), "images300_array",
-                                            image_path[0].replace(".png", ".npy")))
+            # mask_arr = np.load(os.path.join(self.data_dir.strip("images"), "images300_array",
+            #                                 image_path[0].replace(".png", ".npy")))
+            mask_arr = np.load(os.path.join(self.data_dir, image_path[0]))
+
 
         if (np.sum(mask_arr) / 90000) > self.theta:
             image_arr = np.asarray(image)
