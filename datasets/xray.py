@@ -107,11 +107,8 @@ class XrayDataset(Dataset):
             mask_arr = np.load(os.path.join(self.data_dir.strip("images300"), "images300_array",
                                             image_path[0].replace(".jpg", ".npy")))
         else:
-            # mask_arr = np.load(os.path.join(self.data_dir.strip("images"), "images300_array",
-            #                                 image_path[0].replace(".png", ".npy")))
-            mask_arr = np.load(os.path.join(self.data_dir, image_path[0]), allow_pickle=True)
-
-
+            mask_arr = np.load(os.path.join(self.data_dir.strip("images"), "images300_array",
+                                            image_path[0].replace(".png", ".npy")))
 
         if (np.sum(mask_arr) / 90000) > self.theta:
             image_arr = np.asarray(image)
