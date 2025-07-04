@@ -99,7 +99,11 @@ class XrayDataset(Dataset):
     def __getitem__(self, idx):
         caption = self.annot[idx]["report"]
         image_path = self.annot[idx]['image_path']
-        image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
+
+        image_dir = "/kaggle/input/iu-xray/iu_xray/images"
+
+        # image = Image.open(os.path.join(self.data_dir, image_path[0])).resize((300, 300)).convert('RGB')
+        image = Image.open(os.path.join(image_dir, image_path[0])).resize((300, 300)).convert('RGB')
 
         class_image = image
         com_image = image
