@@ -2,6 +2,9 @@ import os
 import torch
 from PIL import Image
 from torchvision import transforms
+import sys
+sys.path.append('/kaggle/working')
+
 
 from models.caption import build_model  # your captioning model
 from datasets.vocab import create_vocab  # ensure it gives `itos` mapping
