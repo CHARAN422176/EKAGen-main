@@ -76,7 +76,7 @@ def generate_report(model, detector, tokenizer, image_path, device, config):
     # The `evaluate` function in your `utils/engine.py` would have the precise logic.
     with torch.no_grad():
         # Step 1: Get diagnosis predictions from the detector model
-        tag_predict, _ = detector(image_tensor)
+        tag_predict = detector(image_tensor)
 
         # Step 2: Generate the report using a greedy search decoding.
         # The model's encoder processes the image first.
