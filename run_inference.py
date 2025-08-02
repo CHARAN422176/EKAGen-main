@@ -9,7 +9,25 @@ sys.path.append('/kaggle/working')
 
 
 from models.caption import build_model  # your captioning model
-from datasets.vocab import create_vocab  # ensure it gives `itos` mapping
+# from datasets.vocab import create_vocab  # ensure it gives `itos` mapping
+def create_vocab(anno_path):
+    # Minimal dummy vocab object for inference
+    class Vocab:
+        def __init__(self):
+            self.itos = {
+                0: "<pad>",
+                1: "<start>",
+                2: "<end>",
+                3: "a",
+                4: "normal",
+                5: "chest"
+            }
+
+        def __getitem__(self, index):
+            return self.itos.get(index, "<unk>")
+
+    return Vocab()
+
 from modules.utils import nested_tensor_from_tensor_list
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
