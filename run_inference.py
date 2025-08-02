@@ -4,6 +4,8 @@ from PIL import Image
 from torchvision import transforms
 import sys
 sys.path.append('/kaggle/working')
+from datasets.vocab import create_vocab
+
 
 
 from models.caption import build_model  # your captioning model
