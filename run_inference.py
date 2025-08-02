@@ -4,7 +4,7 @@ from PIL import Image
 from torchvision import transforms
 import sys
 sys.path.append('/kaggle/working')
-from datasets.vocab import create_vocab
+# from datasets.vocab import create_vocab
 
 
 
