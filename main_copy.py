@@ -10,22 +10,24 @@ class ModelWrapper(torch.nn.Module):
         self.config = config
         self.device = device
 
-    def forward(self, x):
-        # --- This ensures input x always has batch dimension ---
-        # ptflops often gives x as (3, H, W) -- no batch
+    def forward(self, x, *args, **kwargs):
+        # ptflops may send input as tuple, so handle it robustly
+        if isinstance(x, (tuple, list)):
+            x = x[0]
+        # Now x should definitely be a tensor
         if x.dim() == 3:
-            x = x.unsqueeze(0)   # to (1, 3, H, W)
+            x = x.unsqueeze(0)  # Add batch dim if missing
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
-
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         target_mask = torch.ones_like(target).to(self.device)
         class_feature = torch.randn(batch_size, self.config.num_classes).to(self.device)
-        # Defensive: handle if something collapses batch size
+        # Defensive
         if class_feature.dim() == 1:
             class_feature = class_feature.unsqueeze(0)
         print(f"x shape: {x.shape}, class_feature shape: {class_feature.shape}")
         return self.model(x, target, target_mask, class_feature)
+
 
 
 
