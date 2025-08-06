@@ -34,47 +34,27 @@ def main(config):
     device = torch.device(config.device)
     print(f'Initializing Device: {device}')
 
-    if config.mode == "flops":
-        print("mode flops")
-        try:
-            from fvcore.nn import FlopCountAnalysis, parameter_count_table
-        except ImportError:
-            raise ImportError("fvcore not installed. Run `pip install fvcore` first.")
+    if args.mode == "flops":
+        from fvcore.nn import FlopCountAnalysis, parameter_count_table
 
-        model, _ = caption.build_model(config)
-        model.to(device)
+        # Dummy input (3x300x300 as per EkaGen config)
+        dummy_input = torch.randn(1, 3, args.image_size, args.image_size).to(device)
+
         model.eval()
-
-        # Dummy inputs for your model
-        B, C, H, W = 1, 3, config.image_size, config.image_size
-        dummy_input = torch.randn(B, C, H, W).to(device)
-        seq_len = 60
-        vocab_size = config.vocab_size
-
-        target = torch.randint(0, vocab_size, (B, seq_len)).to(device)
-        target_mask = torch.ones(B, seq_len).to(device)
-        class_feature = torch.randn(B, config.hidden_dim).to(device)
-
-        # Wrap the model to allow single tensor input for FlopCountAnalysis
-        class WrappedModel(torch.nn.Module):
-            def __init__(self, model):
-                super().__init__()
-                self.model = model
-
-            def forward(self, x):
-                return self.model(x, target, target_mask, class_feature)
-
-        wrapped_model = WrappedModel(model)
-
-        print("Analyzing FLOPs and Parameters using fvcore...")
         try:
-            flops = FlopCountAnalysis(wrapped_model, dummy_input)
-            print(f"Model: EkaGen")
+            print("Analyzing FLOPs and Parameters using fvcore...")
+            print(f"Model: {args.exp_name if hasattr(args, 'exp_name') else 'EkaGen'}")
             print(f"Input size: {dummy_input.shape}")
-            print(f"FLOPs: {flops.total() / 1e9:.2f} GFLOPs")
-            print(parameter_count_table(wrapped_model))
+            
+            flops = FlopCountAnalysis(model, dummy_input)
+            print(flops)
+            print("Total FLOPs: {:.2f} GFLOPs".format(flops.total() / 1e9))
+
+            param_table = parameter_count_table(model)
+            print(param_table)
         except Exception as e:
             print("Error computing FLOPs:", e)
+
 
         return  # Exit after computing FLOPs and params
 
