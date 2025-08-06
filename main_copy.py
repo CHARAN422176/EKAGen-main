@@ -11,6 +11,9 @@ class ModelWrapper(torch.nn.Module):
         self.device = device
 
     def forward(self, x):
+        # Handle single image input from ptflops: (3, H, W) -> batch of 1
+        if x.dim() == 3:
+            x = x.unsqueeze(0)  # Make it [1, 3, H, W]
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
@@ -19,6 +22,7 @@ class ModelWrapper(torch.nn.Module):
         if class_feature.dim() == 1:
             class_feature = class_feature.unsqueeze(0)
         return self.model(x, target, target_mask, class_feature)
+
 
 def compute_flops_params(config):
     device = torch.device(config.device)
