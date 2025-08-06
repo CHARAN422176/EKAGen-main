@@ -97,6 +97,14 @@ def main(config):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of params: {n_parameters}")
 
+    from ptflops import get_model_complexity_info
+
+    with torch.cuda.device(0):
+        macs, params = get_model_complexity_info(model, (3, args.image_size, args.image_size), as_strings=True,
+                                                print_per_layer_stat=False, verbose=False)
+        print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+        print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
