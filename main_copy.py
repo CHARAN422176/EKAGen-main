@@ -11,20 +11,21 @@ class ModelWrapper(torch.nn.Module):
         self.device = device
 
     def forward(self, x, *args, **kwargs):
-        # ptflops may send input as tuple/list; unpack if needed
         if isinstance(x, (tuple, list)):
             x = x[0]
-        # Ensure batch dimension (ptflops gives [3, H, W])
+        # Make sure input has batch dimension
         if x.dim() == 3:
             x = x.unsqueeze(0)
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         target_mask = torch.ones_like(target).to(self.device)
-        # class_feature must be integer and shape [1, num_classes] for EKAGen
-        class_feature = torch.randint(0, 2, (batch_size, self.config.num_classes), dtype=torch.long).to(self.device)
-        if class_feature.shape[0] != 1:
-            class_feature = class_feature[:1]
+        # For EKAGen/IU-Xray, the key for the knowledge dict is a tuple of 14 ints
+        key_length = 14  # <-- CRUCIAL: matches your knowledge prompt tuple length
+        num_classes = self.config.num_classes
+        class_feature = torch.randint(
+            0, 2, (batch_size, num_classes, key_length), dtype=torch.long
+        ).to(self.device)
         return self.model(x, target, target_mask, class_feature)
 
 def compute_flops_only(config):
