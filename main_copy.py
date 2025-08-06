@@ -13,7 +13,7 @@ from utils.stloss import SoftTarget
 
 def build_diagnosisbot(num_classes, detector_weight_path):
     model = create_model(num_classes=num_classes)
-    assert os.path.exists(detector_weight_path), "file: '{}' dose not exist.".format(detector_weight_path)
+    assert os.path.exists(detector_weight_path), "file: '{}' does not exist.".format(detector_weight_path)
     model.load_state_dict(torch.load(detector_weight_path, map_location=torch.device('cpu')), strict=True)
     for k, v in model.named_parameters():
         v.requires_grad = False
@@ -22,11 +22,12 @@ def build_diagnosisbot(num_classes, detector_weight_path):
 
 def build_tmodel(config, device):
     tmodel, _ = caption.build_model(config)
-    print("Loading teacher medel Checkpoint...")
+    print("Loading teacher model Checkpoint...")
     tcheckpoint = torch.load(config.t_model_weight_path, map_location='cpu')
     tmodel.load_state_dict(tcheckpoint['model'])
     tmodel.to(device)
     return tmodel
+
 
 def main(config):
     print(config)
@@ -44,25 +45,40 @@ def main(config):
         model.to(device)
         model.eval()
 
-        dummy_input = torch.randn(1, 3, config.image_size, config.image_size).to(device)
+        # Dummy inputs for your model
+        B, C, H, W = 1, 3, config.image_size, config.image_size
+        dummy_input = torch.randn(B, C, H, W).to(device)
+        seq_len = 60
+        vocab_size = config.vocab_size
+
+        target = torch.randint(0, vocab_size, (B, seq_len)).to(device)
+        target_mask = torch.ones(B, seq_len).to(device)
+        class_feature = torch.randn(B, config.hidden_dim).to(device)
+
+        # Wrap the model to allow single tensor input for FlopCountAnalysis
+        class WrappedModel(torch.nn.Module):
+            def __init__(self, model):
+                super().__init__()
+                self.model = model
+
+            def forward(self, x):
+                return self.model(x, target, target_mask, class_feature)
+
+        wrapped_model = WrappedModel(model)
 
         print("Analyzing FLOPs and Parameters using fvcore...")
-        flops = FlopCountAnalysis(model, dummy_input)
-
         try:
-            flops = flops.total() / 1e9  # Convert to GFLOPs
+            flops = FlopCountAnalysis(wrapped_model, dummy_input)
             print(f"Model: EkaGen")
             print(f"Input size: {dummy_input.shape}")
-            print(f"FLOPs: {flops:.2f} GFLOPs")
-            print(parameter_count_table(model))
+            print(f"FLOPs: {flops.total() / 1e9:.2f} GFLOPs")
+            print(parameter_count_table(wrapped_model))
         except Exception as e:
             print("Error computing FLOPs:", e)
 
         return  # Exit after computing FLOPs and params
 
-    # -------------------
-    # Regular Training/Test logic (unchanged)
-    # -------------------
+    # ------------------- Regular Training/Test -------------------
     if os.path.exists(config.thresholds_path):
         with open(config.thresholds_path, "rb") as f:
             thresholds = pickle.load(f)
@@ -82,7 +98,6 @@ def main(config):
     print(f"Number of params: {n_parameters}")
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -95,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument('--backbone', type=str, default='resnet101')
     parser.add_argument('--position_embedding', type=str, default='sine')
     parser.add_argument('--dilation', type=bool, default=True)
+
     # Basic
     parser.add_argument('--lr_backbone', type=float, default=1e-5)
     parser.add_argument('--lr', type=float, default=1e-4)
