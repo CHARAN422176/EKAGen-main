@@ -44,8 +44,10 @@ def main(config):
         dummy_input = (3, config.image_size, config.image_size)
 
         with torch.cuda.device(0):
-            macs, params = get_model_complexity_info(model, dummy_input, as_strings=True,
-                                                     print_per_layer_stat=False, verbose=False)
+            # macs, params = get_model_complexity_info(model, dummy_input, as_strings=True,
+            #                                          print_per_layer_stat=False, verbose=False)
+            macs, params = get_model_complexity_info(model, (3, 300, 300), as_strings=True,
+                                             print_per_layer_stat=False, verbose=False)
 
         print("Model: EkaGen")
         print(f"Input size: {dummy_input}")
