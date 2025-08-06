@@ -1,6 +1,7 @@
 import torch
 from models import caption
 from ptflops import get_model_complexity_info
+import argparse
 
 class ModelWrapper(torch.nn.Module):
     def __init__(self, model, config, device):
