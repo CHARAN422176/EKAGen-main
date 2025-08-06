@@ -34,6 +34,7 @@ def main(config):
     print(f'Initializing Device: {device}')
 
     if config.mode == "flops":
+        print("mode flops")
         from ptflops import get_model_complexity_info
         # from models import caption
 
