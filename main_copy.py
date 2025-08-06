@@ -5,6 +5,9 @@ from ptflops import get_model_complexity_info
 
 import pickle
 
+import pickle
+import torch
+
 class ModelWrapper(torch.nn.Module):
     def __init__(self, model, config, device):
         super().__init__()
@@ -12,24 +15,31 @@ class ModelWrapper(torch.nn.Module):
         self.config = config
         self.device = device
 
-        # Load a valid key from the actual knowledge prompt
+        # Load one real key from knowledge prompt (tuples of ints)
         with open(config.knowledge_prompt_path, 'rb') as f:
             kp = pickle.load(f)
-        self.template_key = list(kp.keys())[0]
+        self.template_key = list(kp.keys())[0]  # This is a tuple of 14 ints
         self.key_length = len(self.template_key)
+        self.num_classes = self.config.num_classes
 
     def forward(self, x, *args, **kwargs):
-        if isinstance(x, (tuple, list)): x = x[0]
-        if x.dim() == 3: x = x.unsqueeze(0)
+        if isinstance(x, (tuple, list)):
+            x = x[0]
+        if x.dim() == 3:
+            x = x.unsqueeze(0)
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
-
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         target_mask = torch.ones_like(target).to(self.device)
 
-        # Build class_feature with only valid key(s)
-        cf = torch.tensor([self.template_key], dtype=torch.long).repeat(batch_size, self.config.num_classes, 1).to(self.device)
+        # Now, for every class in the batch, fill with a valid key (tuple of ints)
+        # shape: (batch_size, num_classes, key_length)
+        cf = torch.tensor(
+            [self.template_key], dtype=torch.long
+        ).repeat(batch_size, self.num_classes, 1).to(self.device)
+
         return self.model(x, target, target_mask, cf)
+
 
 
 def compute_flops_only(config):
