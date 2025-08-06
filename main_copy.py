@@ -1,7 +1,7 @@
 import torch
+import argparse
 from models import caption
 from ptflops import get_model_complexity_info
-import argparse
 
 class ModelWrapper(torch.nn.Module):
     def __init__(self, model, config, device):
@@ -11,12 +11,12 @@ class ModelWrapper(torch.nn.Module):
         self.device = device
 
     def forward(self, x, *args, **kwargs):
-        # ptflops may send input as tuple, so handle it robustly
+        # ptflops may send input as tuple/list; unpack if needed
         if isinstance(x, (tuple, list)):
             x = x[0]
-        # Now x should definitely be a tensor
+        # Ensure batch dimension
         if x.dim() == 3:
-            x = x.unsqueeze(0)  # Add batch dim if missing
+            x = x.unsqueeze(0)
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
@@ -25,32 +25,25 @@ class ModelWrapper(torch.nn.Module):
         # Defensive
         if class_feature.dim() == 1:
             class_feature = class_feature.unsqueeze(0)
-        print(f"x shape: {x.shape}, class_feature shape: {class_feature.shape}")
         return self.model(x, target, target_mask, class_feature)
 
-
-
-
-def compute_flops_params(config):
+def compute_flops_only(config):
     device = torch.device(config.device)
     model, _ = caption.build_model(config)
     model.to(device)
     model.eval()
-    # Wrap model for structure compatibility
     wrapped_model = ModelWrapper(model, config, device).to(device)
     input_res = (3, config.image_size, config.image_size)
     with torch.cuda.device(0 if 'cuda' in config.device else -1):
-        macs, params = get_model_complexity_info(
+        macs, _ = get_model_complexity_info(
             wrapped_model, input_res, as_strings=True,
             print_per_layer_stat=False, verbose=False
         )
-    print(f"\n✅ FLOPs and Parameters for EKAGen:")
+    print(f"\n✅ EKAGen Model FLOPs Only:")
     print(f"{'Input Resolution:':<30} {input_res}")
-    print(f"{'Computational Complexity:':<30} {macs}")
-    print(f"{'Number of Parameters:':<30} {params}\n")
+    print(f"{'Computational Complexity:':<30} {macs}\n")
 
-# Example usage in your main()
-# Only run this if you want FLOPs/params and not training:
+# Usage inside your main:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -114,8 +107,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, default="train")
     parser.add_argument('--test_path', type=str, default="")
 
-    # config = parser.parse_args()
     config = parser.parse_args()
     if config.mode == "flops":
-        compute_flops_params(config)
+        compute_flops_only(config)
         exit(0)
