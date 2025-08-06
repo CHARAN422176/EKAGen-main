@@ -29,6 +29,26 @@ def build_tmodel(config, device):
     return tmodel
 
 
+# Wrapper for ptflops to handle forward input shape
+class ModelWrapper(torch.nn.Module):
+    def __init__(self, model, config, device):
+        super(ModelWrapper, self).__init__()
+        self.model = model
+        self.config = config
+        self.device = device
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        seq_len = self.config.max_position_embeddings
+
+        # Create dummy inputs for forward
+        target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
+        target_mask = torch.ones_like(target).to(self.device)
+        class_feature = torch.randn(batch_size, self.config.num_classes).to(self.device)
+
+        return self.model(x, target, target_mask, class_feature)
+
+
 def main(config):
     print(config)
     device = torch.device(config.device)
@@ -47,19 +67,19 @@ def main(config):
             raise ImportError("ptflops not installed. Run `pip install ptflops` first.")
 
         input_res = (3, config.image_size, config.image_size)
+        wrapped_model = ModelWrapper(model, config, device).to(device)
 
         with torch.cuda.device(0 if 'cuda' in config.device else -1):
             macs, params = get_model_complexity_info(
-                model, input_res, as_strings=True,
+                wrapped_model, input_res, as_strings=True,
                 print_per_layer_stat=False, verbose=False
             )
 
-            print(f"\n✅ FLOPs and Parameters for model '{model.__class__.__name__}':")
-            print(f"{'Input Resolution:':<30} {input_res}")
-            print(f"{'Computational Complexity:':<30} {macs}")
-            print(f"{'Number of Parameters:':<30} {params}\n")
-
-        return  # Exit after reporting FLOPs
+        print(f"\n✅ FLOPs and Parameters for model '{model.__class__.__name__}':")
+        print(f"{'Input Resolution:':<30} {input_res}")
+        print(f"{'Computational Complexity:':<30} {macs}")
+        print(f"{'Number of Parameters:':<30} {params}\n")
+        return  # Exit after flops mode
 
     # ------------------- Regular Training/Test -------------------
     if os.path.exists(config.thresholds_path):
