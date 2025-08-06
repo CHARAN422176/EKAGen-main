@@ -3,6 +3,8 @@ import argparse
 from models import caption
 from ptflops import get_model_complexity_info
 
+import pickle
+
 class ModelWrapper(torch.nn.Module):
     def __init__(self, model, config, device):
         super().__init__()
@@ -10,23 +12,25 @@ class ModelWrapper(torch.nn.Module):
         self.config = config
         self.device = device
 
+        # Load a valid key from the actual knowledge prompt
+        with open(config.knowledge_prompt_path, 'rb') as f:
+            kp = pickle.load(f)
+        self.template_key = list(kp.keys())[0]
+        self.key_length = len(self.template_key)
+
     def forward(self, x, *args, **kwargs):
-        if isinstance(x, (tuple, list)):
-            x = x[0]
-        # Make sure input has batch dimension
-        if x.dim() == 3:
-            x = x.unsqueeze(0)
+        if isinstance(x, (tuple, list)): x = x[0]
+        if x.dim() == 3: x = x.unsqueeze(0)
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
+
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         target_mask = torch.ones_like(target).to(self.device)
-        # For EKAGen/IU-Xray, the key for the knowledge dict is a tuple of 14 ints
-        key_length = 14  # <-- CRUCIAL: matches your knowledge prompt tuple length
-        num_classes = self.config.num_classes
-        class_feature = torch.randint(
-            0, 2, (batch_size, num_classes, key_length), dtype=torch.long
-        ).to(self.device)
-        return self.model(x, target, target_mask, class_feature)
+
+        # Build class_feature with only valid key(s)
+        cf = torch.tensor([self.template_key], dtype=torch.long).repeat(batch_size, self.config.num_classes, 1).to(self.device)
+        return self.model(x, target, target_mask, cf)
+
 
 def compute_flops_only(config):
     device = torch.device(config.device)
