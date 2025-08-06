@@ -14,17 +14,17 @@ class ModelWrapper(torch.nn.Module):
         # ptflops may send input as tuple/list; unpack if needed
         if isinstance(x, (tuple, list)):
             x = x[0]
-        # Ensure batch dimension
+        # Ensure batch dimension (ptflops gives [3, H, W])
         if x.dim() == 3:
             x = x.unsqueeze(0)
         batch_size = x.shape[0]
         seq_len = self.config.max_position_embeddings
         target = torch.randint(0, self.config.vocab_size, (batch_size, seq_len)).to(self.device)
         target_mask = torch.ones_like(target).to(self.device)
-        class_feature = torch.randn(batch_size, self.config.num_classes).to(self.device)
-        # Defensive
-        if class_feature.dim() == 1:
-            class_feature = class_feature.unsqueeze(0)
+        # class_feature must be integer and shape [1, num_classes] for EKAGen
+        class_feature = torch.randint(0, 2, (batch_size, self.config.num_classes), dtype=torch.long).to(self.device)
+        if class_feature.shape[0] != 1:
+            class_feature = class_feature[:1]
         return self.model(x, target, target_mask, class_feature)
 
 def compute_flops_only(config):
@@ -43,7 +43,6 @@ def compute_flops_only(config):
     print(f"{'Input Resolution:':<30} {input_res}")
     print(f"{'Computational Complexity:':<30} {macs}\n")
 
-# Usage inside your main:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -59,7 +58,7 @@ if __name__ == "__main__":
     # Basic
     parser.add_argument('--lr_backbone', type=float, default=1e-5)
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--device', default='cuda:0', help='device id (i.e. 0 or 0,1 or cpu)')
+    parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--num_workers', type=int, default=8)
@@ -103,7 +102,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', type=str, default='../dataset/mimic_cxr/images300')
     parser.add_argument('--limit', type=int, default=-1)
 
-    # mode
+    # Mode (train, test, or flops)
     parser.add_argument('--mode', type=str, default="train")
     parser.add_argument('--test_path', type=str, default="")
 
