@@ -13,9 +13,9 @@ from utils.stloss import SoftTarget
 
 def build_diagnosisbot(num_classes, detector_weight_path):
     model = create_model(num_classes=num_classes)
-    assert os.path.exists(detector_weight_path), "file: '{}' does not exist.".format(detector_weight_path)
+    assert os.path.exists(detector_weight_path), f"file: '{detector_weight_path}' does not exist."
     model.load_state_dict(torch.load(detector_weight_path, map_location=torch.device('cpu')), strict=True)
-    for k, v in model.named_parameters():
+    for _, v in model.named_parameters():
         v.requires_grad = False
     return model
 
@@ -34,29 +34,32 @@ def main(config):
     device = torch.device(config.device)
     print(f'Initializing Device: {device}')
 
-    if args.mode == "flops":
-        from fvcore.nn import FlopCountAnalysis, parameter_count_table
+    # Build model
+    model, _ = caption.build_model(config)
+    model.to(device)
+    model.eval()
 
-        # Dummy input (3x300x300 as per EkaGen config)
-        dummy_input = torch.randn(1, 3, args.image_size, args.image_size).to(device)
-
-        model.eval()
+    # FLOPs and Params mode
+    if config.mode == "flops":
         try:
-            print("Analyzing FLOPs and Parameters using fvcore...")
-            print(f"Model: {args.exp_name if hasattr(args, 'exp_name') else 'EkaGen'}")
-            print(f"Input size: {dummy_input.shape}")
-            
-            flops = FlopCountAnalysis(model, dummy_input)
-            print(flops)
-            print("Total FLOPs: {:.2f} GFLOPs".format(flops.total() / 1e9))
+            from ptflops import get_model_complexity_info
+        except ImportError:
+            raise ImportError("ptflops not installed. Run `pip install ptflops` first.")
 
-            param_table = parameter_count_table(model)
-            print(param_table)
-        except Exception as e:
-            print("Error computing FLOPs:", e)
+        input_res = (3, config.image_size, config.image_size)
 
+        with torch.cuda.device(0 if 'cuda' in config.device else -1):
+            macs, params = get_model_complexity_info(
+                model, input_res, as_strings=True,
+                print_per_layer_stat=False, verbose=False
+            )
 
-        return  # Exit after computing FLOPs and params
+            print(f"\n✅ FLOPs and Parameters for model '{model.__class__.__name__}':")
+            print(f"{'Input Resolution:':<30} {input_res}")
+            print(f"{'Computational Complexity:':<30} {macs}")
+            print(f"{'Number of Parameters:':<30} {params}\n")
+
+        return  # Exit after reporting FLOPs
 
     # ------------------- Regular Training/Test -------------------
     if os.path.exists(config.thresholds_path):
@@ -70,25 +73,16 @@ def main(config):
     detector = build_diagnosisbot(config.num_classes, config.detector_weight_path)
     detector.to(device)
 
-    model, criterion = caption.build_model(config)
     criterionKD = SoftTarget(4.0)
-    model.to(device)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Number of params: {n_parameters}")
-
-    from ptflops import get_model_complexity_info
-
-    with torch.cuda.device(0):
-        macs, params = get_model_complexity_info(model, (3, args.image_size, args.image_size), as_strings=True,
-                                                print_per_layer_stat=False, verbose=False)
-        print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-        print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+    print(f"Number of trainable parameters: {n_parameters}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
+    # Training settings
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--lr_drop', type=int, default=20)
     parser.add_argument('--start_epoch', type=int, default=0)
@@ -117,14 +111,13 @@ if __name__ == "__main__":
     parser.add_argument('--vocab_size', type=int, default=4253)
     parser.add_argument('--start_token', type=int, default=1)
     parser.add_argument('--end_token', type=int, default=2)
-
     parser.add_argument('--enc_layers', type=int, default=6)
     parser.add_argument('--dec_layers', type=int, default=6)
     parser.add_argument('--dim_feedforward', type=int, default=2048)
     parser.add_argument('--nheads', type=int, default=8)
     parser.add_argument('--pre_norm', type=int, default=True)
 
-    # diagnosisbot
+    # DiagnosisBot
     parser.add_argument('--num_classes', type=int, default=14)
     parser.add_argument('--thresholds_path', type=str, default="./datasets/thresholds.pkl")
     parser.add_argument('--detector_weight_path', type=str, default="./weight_path/diagnosisbot.pth")
@@ -146,7 +139,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', type=str, default='../dataset/mimic_cxr/images300')
     parser.add_argument('--limit', type=int, default=-1)
 
-    # mode
+    # Mode
     parser.add_argument('--mode', type=str, default="train")
     parser.add_argument('--test_path', type=str, default="")
 
