@@ -35,26 +35,30 @@ def main(config):
 
     if config.mode == "flops":
         print("mode flops")
-        from ptflops import get_model_complexity_info
-        # from models import caption
+        try:
+            from fvcore.nn import FlopCountAnalysis, parameter_count_table
+        except ImportError:
+            raise ImportError("fvcore not installed. Run `pip install fvcore` first.")
 
         model, _ = caption.build_model(config)
         model.to(device)
         model.eval()
 
-        dummy_input = (3, config.image_size, config.image_size)
+        dummy_input = torch.randn(1, 3, config.image_size, config.image_size).to(device)
 
-        with torch.cuda.device(0):
-            # macs, params = get_model_complexity_info(model, dummy_input, as_strings=True,
-            #                                          print_per_layer_stat=False, verbose=False)
-            macs, params = get_model_complexity_info(model, (3, 300, 300), as_strings=True,
-                                             print_per_layer_stat=False, verbose=False)
+        print("Analyzing FLOPs and Parameters using fvcore...")
+        flops = FlopCountAnalysis(model, dummy_input)
 
-        print("Model: EkaGen")
-        print(f"Input size: {dummy_input}")
-        print(f"FLOPs: {macs}")
-        print(f"Parameters: {params}")
-        return  # Exit after printing flops/params
+        try:
+            flops = flops.total() / 1e9  # Convert to GFLOPs
+            print(f"Model: EkaGen")
+            print(f"Input size: {dummy_input.shape}")
+            print(f"FLOPs: {flops:.2f} GFLOPs")
+            print(parameter_count_table(model))
+        except Exception as e:
+            print("Error computing FLOPs:", e)
+
+        return  # Exit after computing FLOPs and params
 
     # -------------------
     # Regular Training/Test logic (unchanged)
@@ -76,6 +80,8 @@ def main(config):
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of params: {n_parameters}")
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
