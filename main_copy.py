@@ -35,7 +35,7 @@ def main(config):
 
     if config.mode == "flops":
         from ptflops import get_model_complexity_info
-        from models import caption
+        # from models import caption
 
         model, _ = caption.build_model(config)
         model.to(device)
